@@ -1,0 +1,393 @@
+unit Unit1;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ExtCtrls, ComCtrls, Buttons, Menus, ExtDlgs,consts,
+  Spin;
+
+type
+  Tfrm1 = class(TForm)
+    pC: TPageControl;
+    tbJatek: TTabSheet;
+    TabSheet2: TTabSheet;
+    Menu: TMainMenu;
+    mJatek: TMenuItem;
+    mKilepes: TMenuItem;
+    mBeallitasok: TMenuItem;
+    OpenP: TOpenPictureDialog;
+    pKepek: TPanel;
+    lKepek: TListBox;
+    Panel1: TPanel;
+    ITesztnezet: TImage;
+    tEltuntet: TTimer;
+    pPontKiir: TPanel;
+    mInfo: TMemo;
+    pKepcsere: TPanel;
+    GroupBox1: TGroupBox;
+    Label2: TLabel;
+    sMag: TSpinEdit;
+    Label3: TLabel;
+    sSzel: TSpinEdit;
+    GroupBox2: TGroupBox;
+    pJ1P: TPanel;
+    GroupBox3: TGroupBox;
+    pProba: TPanel;
+    lJ1: TLabel;
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormCreate(Sender: TObject);
+    PROCEDURE ImgClick(Sender:TObject);
+    FUNCTION Lap(tagsorszam:integer;Tag:boolean):TImage;
+    PROCEDURE KepAd(Mibe:TImage;mit:string);
+    procedure bTorolClick(Sender: TObject);
+    procedure lKepekClick(Sender: TObject);
+    procedure mJatekClick(Sender: TObject);
+    procedure tEltuntetTimer(Sender: TObject);
+    procedure mBeallitasokClick(Sender: TObject);
+    procedure pKepcsereClick(Sender: TObject);
+    procedure mKilepesClick(Sender: TObject);
+    procedure lKepekDblClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  frm1: Tfrm1;
+  db:word;
+  i,j:integer;
+  fnev:string;
+  utolso, {Az elõzõleg felfordított lap (2 lapot kell figyelnünk, hogy egyezik-e, egyik lap az amit éppen most választottunk, a másik pedig az "utolso" lap
+          Értékei:
+          -1 ->Ha nincs felfordítva egyik lap sem, illetve minden új játék kezdéskor;
+          más->A legutóbb választott lap(kép) Hint tulajdonságának értéke }
+  utolsoelotti:string;
+implementation
+
+{$R *.dfm}
+                                     {A kép TAG(Tag+True), vagy a Hint(Tag=False) tulajdonságára keresünk}
+FUNCTION Tfrm1.Lap(tagsorszam:integer;Tag:boolean):TImage;
+var i,j:integer;
+begin
+  Result:=NIL;
+  j:=tbJatek.ComponentCount;
+  i:=0;
+  while(i<j)and(Result=NIL)do
+  begin
+    if(tbJatek.Components[i] is TImage)then
+      if(((tbJatek.Components[i] as TImage).Tag=tagsorszam)and(Tag=True))
+      or
+      (((tbJatek.Components[i] as TImage).Hint=IntToStr(tagsorszam))and(Tag=False))
+      then
+        Result:=(tbJatek.Components[i] as TImage);
+    Inc(i);
+  end;
+end;
+
+PROCEDURE Tfrm1.KepAd(Mibe:TImage;mit:string);{Kép betése a Mibe TImage kompiba, de csak akkor, ha a megadott képállomány megtalálható}
+var sr:TSearchRec; mit1:integer;
+begin
+  mit1:=StrToInt(mit);
+  if(mit1<=lKepek.Items.Count-1)then
+  if(FindFirst(lKepek.Items[mit1],faAnyFile,sr)=0)then
+    Mibe.Picture.LoadFromFile(lKepek.Items[mit1]){A kép betöltése}
+  else {Ha ez esetleg nem sikerül, hibajelzés}
+   MessageDlg('Egy vagy több képállomány nem található!'+#13#10+'Nézd végig a "Szereplõ képek" listát, és cseréld azt, ami nem található!',mtWarning,[mbOk],0);
+end;
+
+procedure Tfrm1.FormClose(Sender: TObject; var Action: TCloseAction);
+var i,j:integer;
+begin
+  {A képek által lefoglalt memória felszabadítása}
+  i:=0;
+  j:=tbJatek.ComponentCount;
+  while(i<j)do
+  begin
+   if(tbJatek.Components[i] is TImage)then
+   begin
+     TImage(tbJatek.Components[i]).Free;
+     Dec(j);
+   end;{if(tbJatek.Components[i] is TImage)}
+   Inc(i);
+  end;{while}
+  {A képek által lefoglalt memória felszabadítása}
+
+  lKepek.Items.SaveToFile(fnev+'kepek.txt');{A képeket tartalmazó lista kimentése állományba}
+end;
+
+procedure Tfrm1.FormCreate(Sender: TObject);
+var sr:TSearchRec; Img:TImage; i,j:integer; hiba:boolean;{volt olyan képállomány amit nem található az eltárolt fizikai helyén}
+begin
+  Randomize;
+  fnev:=ExtractFileDir(ParamStr(0))+'\';{Meghatározzuk a program indítóállományának (.exe) helyét a merevlemezen, mert a különbözõ mentések csak így kerülnek helyesen a prograsm exe-je mellé.}
+  if(FindFirst(fnev+'kepek.txt',faAnyFile,sr)=0)then{Ha létezik a kép-listát tartalmazó állomány}
+  lKepek.Items.LoadFromFile(fnev+'kepek.txt')       {akkor betöltjük, ha nem}
+  else
+  begin                                             {akkor ezt szóvá tesszük, és feltöltjük a képeket tartalmazó listát a szabványos nevekkel}
+    MessageDlg('Nem található a képeket tartalmazó "kepek.txt" állomány!'+#13#10+'A képeket tartalmazó listát feltöltöttem a szabványos nevekkel,'+#13#10+'de valószínûleg cserélgetni kell a rendelkezésre állókkal!',mtWarning,[mbOk],0);
+    for i:=1to 19do
+    lKepek.Items.Add(IntToStr(i)+'.bmp');
+  end;{if(FindFirst(fnev+'kepek.txt',faAnyFile,sr)<>0)}
+
+  {Ellenõrizzük, hogy a listában szereplõ képeket, ha csak egy is hiányzik, akkor letíltjuk az "Új játék" lehetõségét, és figyelmeztetünk!}
+  j:=lKepek.Items.Count;
+  i:=0;
+  hiba:=False;
+  while(i<j)and(hiba=False)do
+  begin
+    if(FindFirst(lKepek.Items[i],faAnyFile,sr)<>0)then hiba:=True;
+    Inc(i);
+  end;{while}
+  if(hiba=True)then
+  begin
+    MessageDlg('Egy vagy több képállomány nem található!'+#13#10+'Nézd végig a "Szereplõ képek" listát, és cseréld azt, ami nem található!',mtWarning,[mbOk],0);
+  end;
+  mJatek.Enabled:=not(hiba);
+
+  {36 db TImage komponens létrehozása, amikbe a képeket töltjük majd be}
+  db:=0;
+  for i:=0to 5do
+  for j:=0to 5do
+  begin
+    Img:=TImage.Create(tbJatek);
+    Img.Parent:=tbJatek;
+    Img.Width:=0;
+    Img.Height:=0;
+    Img.Left:=0; Img.Top:=0;
+    Img.Stretch:=True;
+    Img.OnClick:=ImgClick;
+    Img.Cursor:=crHandPoint;
+    Img.Tag:=db;
+    Img.Hint:='';
+    Img.ShowHint:=False;
+    Img.Visible:=False; {Kezdetben ne látszódjanak}
+    Inc(db);
+    Img.Center:=True;{Képek középre igazítása}
+  end;{for j}
+  {36 db TImage komponens létrehozása, amikbe a képeket töltjük majd be}
+
+  tbjatek.DoubleBuffered:=True;{Azért kell, hogy a lap-eltûnési animációk (zsugorodás) szebb legyen, ne villódzjon}
+
+end;
+
+PROCEDURE Tfrm1.ImgClick(Sender:TObject);
+var  Kep:TImage; {Az a kép amire kattintottunk}
+begin
+  if(Sender is TImage)then
+  begin
+    Kep:=(Sender as TImage);{Azért kell, hogy a kattintott képre kényelmesebben "hivatkozhassunk"}
+    if((utolsoelotti='')or(utolso=''))then {Növeljük a próbálkozások számát}
+    begin
+      i:=StrToInt(pProba.Caption);
+      Inc(i);
+      if(utolsoelotti<>'')and(Lap(StrToInt(utolsoelotti),True).Tag=Kep.Tag)then {Ha ugyanarra a képre akkor kattintottunk ha már egyszer fel lettfordítva, akkor az nem számít próbálkozásnak, hisz ugyanarról a lapról van szó -> visszacsökkentjük a próbálkozások számát}
+      Dec(i);
+      pProba.Caption:=IntToStr(i);
+    end;
+
+    if(utolsoelotti<>'')and(utolso<>'') {Ha már két lap fel van fordítva és újra kattinttunk egyen}
+    and(utolsoelotti<>utolso)then       {A két lap nem egyezik}
+    begin
+      KepAd(Lap(StrToInt(utolsoelotti),True),IntToStr(lKepek.Items.Count-1));
+      KepAd(Lap(StrToInt(utolso),True),IntToStr(lKepek.Items.Count-1));
+      utolso:=''; utolsoelotti:='';
+      if(lJ1.Font.Color=clRed)then
+      begin
+        lJ1.Font.Color:=clBlack;
+      end
+      else
+      begin
+        lJ1.Font.Color:=clRed;
+      end;
+    end{if(utolsoelotti<>'')and(utolso<>'')and(utolsoelotti<>utolso)}
+    else
+    begin
+      if(utolso='')and(utolsoelotti<>'')and(utolsoelotti<>IntToStr(Kep.Tag))then utolso:=IntToStr(Kep.Tag);
+      if(utolsoelotti='')then utolsoelotti:=IntToStr(Kep.Tag);
+      KepAd(Lap(Kep.Tag,True),Kep.Hint);
+    end; {else if(utolsoelotti<>'')and(utolso<>'')}
+
+    if(utolsoelotti<>'')and(utolso<>'')and                                      {Ha már két lap fel van fordítva}
+    (Lap(StrToInt(utolsoelotti),True).Hint=Lap(StrToInt(utolso),True).Hint)then {és a két lap EGYEZIK!! :}
+    begin
+      frm1.Color:=$00989FBD;
+      tEltuntet.Enabled:=True;
+      if(lJ1.Font.Color=clRed)then i:=StrToInt(pJ1p.Caption);
+      Inc(i);
+      if(lJ1.Font.Color=clRed)then pJ1p.Caption:=IntToStr(i);
+    end;{if(utolsoelotti<>'')and(utolso<>'')and..}
+  end;{if(Sender is TImage)}
+end;
+
+procedure Tfrm1.bTorolClick(Sender: TObject);
+begin
+  if(lKepek.ItemIndex<>-1)then lKepek.Items.Delete(lKepek.ItemIndex);
+end;
+
+procedure Tfrm1.lKepekClick(Sender: TObject);
+var sr:TSearchRec;
+begin
+  SetCurrentDir(fnev);{Aktuális könyvtár beállítása. Azért kell, mert elképzelhetõ, hogy nem a program könyvtárából választunk képet és így "elmászik" kiindulási könyvtár}
+  if(FindFirst(lKepek.Items[lKepek.ItemIndex],faAnyFile,sr)<>0)then
+  begin
+    MessageDlg('A választott állomány nem található a mostani elérési útján!'+#13#10+'Kérlek cseréld ki a képet!',mtWarning,[mbOk],0);
+    pKepcsereClick(Sender);
+  end
+  else KepAd(iTesztNezet,IntToStr(lKepek.ItemIndex));
+end;
+
+procedure Tfrm1.mJatekClick(Sender: TObject);
+var i,i1,j,kov:integer; ok:boolean;
+begin
+  if(tEltuntet.Enabled=True)then Exit; {Ha épp egy eltûnési animáció fut, akkor kilépünk az eljárásból}
+  pPontKiir.Visible:=True;
+ {Használt változók alapértékekinek beállítása}
+  utolsoelotti:='';
+  utolso:='';
+  pJ1P.Caption:='0';
+  pProba.Caption:='0';
+ {Használt változók alapértékekinek beállítása}
+ {Ahhoz, hogy a képeket megfelelõen tegyük ki elõször le kell nullázni az x,y helyzetüket}
+  db:=0;
+  for i:=0to 5do
+  for j:=0to 5do
+  begin
+    if(tbJatek.Components[db] is TImage)then
+    with(tbJatek.Components[db] as TImage)do
+    begin
+      Left:=0;
+      Top:=0;
+    end;
+    Inc(db);
+  end;{for i for j}
+  {Ahhoz, hogy a képeket megfelelõen tegyük ki elõször le kell nullázni az x,y helyzetüket}
+
+  {A már létrehozott lapokat elõkészítjük a megjelenítésre, méretek, láthatóság beállítása}
+  db:=0;
+  for i:=0to 5do
+  for j:=0to 5do
+  begin
+    if(tbJatek.Components[db] is TImage)then
+    with(tbJatek.Components[db] as TImage)do
+    begin
+      Width:=sSzel.Value;
+      Height:=sMag.Value;
+      Left:=Left+j*(sSzel.Value+10);
+      Top:=Top+i*(sMag.Value+10);
+      Visible:=True;
+      Hint:='';
+    end;
+    Inc(db);
+  end;{for i for j}
+  {A már létrehozott lapokat elõkészítjük a megjelenítésre, méretek, láthatóság beállítása}
+
+  {Véletlenszerûen elhelyezzük a táblán a lappárokat}
+  i:=0;
+  j:=lKepek.Items.Count-1;
+  while(i<>j)do
+  begin
+   for i1:=1to 2do{Két, egyforma lapot letesztünk véletlenszerû helyre}
+   begin
+     repeat
+       ok:=False;
+       kov:=Random(2*j);
+       if(Lap(kov,True).Hint='')then ok:=True;
+     until(ok=True);
+     Lap(kov,True).Hint:=IntToStr(i); {A kisorsolt hely megfelelõ volt -> Az i. féle lappár egyik darabját letesszük}
+   end;{for i1}
+   Inc(i);
+  end;{while(ok=False)}
+  {Véletlenszerûen elhelyezzük a táblán a lappárokat}
+
+  {A lapokat elõször a hátukra fordítjuk, így kezdetben mindegyiknek csak a hátlapja látszik}
+  j:=tbJatek.ComponentCount-1;
+  for i:=0to j do KepAd(Lap(i,True),IntToStr(lKepek.Items.Count-1));
+  {A lapokat elõször a hátukra fordítjuk, így kezdetben mindegyiknek csak a hátlapja látszik}
+  pC.ActivePageIndex:=0;
+end;
+
+procedure Tfrm1.mBeallitasokClick(Sender: TObject);
+begin
+  if(tEltuntet.Enabled=True)then Exit; {Ha épp egy eltûnési animáció fut, akkor kilépünk az eljárásból}
+  pC.ActivePageIndex:=1;
+end;
+
+procedure Tfrm1.pKepcsereClick(Sender: TObject);
+var i,j:integer; hiba:boolean; sr:TSearchRec;
+begin
+  if(lKepek.ItemIndex=-1)then Exit;{Ha nincs kijelölve egy kép sem, akkor kilépünk ebbõl az eljárásból}
+  OpenP.InitialDir:=ExpandFileName(lKepek.Items[lKepek.ItemIndex]);{A tallózóablak az aktuálisan kiválasztott állományt tartalmazó könyvtrában nyíljon meg}
+  if(OpenP.Execute)then
+  begin
+    if(lKepek.Items.IndexOf(LowerCase(ExtractRelativePath(fnev,OpenP.FileName)))=-1)then {Ha még nem szerepel a listában}
+    lKepek.Items[lKepek.ItemIndex]:=LowerCase(ExtractRelativePath(fnev,OpenP.FileName));
+
+    {Megnézzük, hogy mindegyik kép megvan-e, ha mostmár igen, akkor engedélyezzük az "Új játék" menüt}
+    j:=lKepek.Items.Count-1;
+    i:=0;
+    hiba:=True;
+    SetCurrentDir(fnev);{A helyes ellenõzéshez az aktuális könyvtárat be kell állítani a program .exe-jét tartalmazó könyvtárra}
+    while(i<>j)and(hiba=True)do
+    begin
+      if(FindFirst(lKepek.Items[i],faAnyFile,sr)<>0)then hiba:=False;
+      Inc(i);
+    end;{while}
+    mJatek.Enabled:=hiba;
+    {Megnézzük, hogy mindegyik kép megvan-e, ha mostmár igen, akkor engedélyezzük az "Új játék" menüt}
+
+  end;
+end;
+
+procedure Tfrm1.mKilepesClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure Tfrm1.tEltuntetTimer(Sender: TObject); {Egy kis csicsa... eltûnési animációk}
+var eleg,kesz:boolean; s:string;
+begin
+  eleg:=True;
+  Lap(StrToInt(utolsoelotti),True).Width:=Lap(StrToInt(utolsoelotti),True).Width-2;  Lap(StrToInt(utolsoelotti),True).Height:=Lap(StrToInt(utolsoelotti),True).Height-2;
+  Lap(StrToInt(utolso),True).Width:=Lap(StrToInt(utolso),True).Width-2;              Lap(StrToInt(utolso),True).Height:=Lap(StrToInt(utolso),True).Height-2;
+  if(Lap(StrToInt(utolso),True).Height>0)then eleg:=False;
+  if(eleg=True)then
+  begin
+    Lap(StrToInt(utolsoelotti),True).Visible:=False;
+    Lap(StrToInt(utolso),True).Visible:=False;
+  end;
+  tEltuntet.Enabled:=not(eleg);
+  tbJatek.Enabled:=(eleg);
+  if(tbJatek.Enabled=True)then {Ha eltünt a két egyezõ lap, akkor "töröljük" az aktuális lapokat}
+  begin
+    utolso:=''; utolsoelotti:='';
+
+    {Van még lap a táblán?}
+    kesz:=True;
+    i:=0;
+    j:=tbJatek.ComponentCount;
+    while(i<j)and(kesz=True)do
+    begin
+      if(tbJatek.Components[i] is TImage)and((tbJatek.Components[i] as TImage).Visible=True)then kesz:=False;
+      Inc(i);
+     end;{while}
+    {Van még lap a táblán?}
+
+    if(kesz=True)then {Ha nincs, akkor az eredmény kiírása}
+    begin
+      MessageDlg('Nyertél! A játék véget ért!'+#13#10+#13#10+s,mtInformation,[mbOk],0);
+      pPontKiir.Visible:=False;
+    end;
+  end;
+  frm1.Color:=clBtnFace;{A háttérszín visszaállítása, egy felvillantás után}
+
+end;
+
+procedure Tfrm1.lKepekDblClick(Sender: TObject);
+begin
+  pKepcsereClick(Sender);
+end;
+
+end.
+

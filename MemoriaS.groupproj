@@ -1,0 +1,36 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{95CFCD47-A5E5-425E-8273-99437F70FE43}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Memoria.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="Memoria">
+        <MSBuild Projects="Memoria.dproj"/>
+    </Target>
+    <Target Name="Memoria:Clean">
+        <MSBuild Projects="Memoria.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Memoria:Make">
+        <MSBuild Projects="Memoria.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="Memoria"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="Memoria:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="Memoria:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
